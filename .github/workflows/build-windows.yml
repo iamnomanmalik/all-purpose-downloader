@@ -11,33 +11,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 1. Setup MSVC Developer Environment (Fixes Visual Studio Generator error)
+      - name: Set up Visual Studio environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      # 2. Install Qt6
       - name: Install Qt6
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.7.*'
+          version: '6.7.2'
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2019_64'
 
+      # 3. Install libcurl via vcpkg
       - name: Install libcurl via vcpkg
         run: |
           vcpkg install curl:x64-windows
 
+      # 4. Configure CMake
       - name: Configure
         run: |
-          cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}"
+          cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
 
+      # 5. Build Project
       - name: Build
         run: cmake --build build --config Release
 
+      # 6. Deploy Qt DLLs
       - name: Deploy Qt DLLs
         run: |
           windeployqt.exe build\Release\downloader.exe --release
 
+      # 7. Copy vcpkg curl DLL
       - name: Copy vcpkg curl DLL
         run: |
           Copy-Item "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\bin\libcurl.dll" build\Release\ -ErrorAction SilentlyContinue
 
+      # 8. Upload artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
