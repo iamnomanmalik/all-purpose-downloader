@@ -1,0 +1,45 @@
+name: Build Windows exe
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: {}
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.7.*'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
+
+      - name: Install libcurl via vcpkg
+        run: |
+          vcpkg install curl:x64-windows
+
+      - name: Configure
+        run: |
+          cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}"
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Deploy Qt DLLs
+        run: |
+          windeployqt.exe build\Release\downloader.exe --release
+
+      - name: Copy vcpkg curl DLL
+        run: |
+          Copy-Item "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\bin\libcurl.dll" build\Release\ -ErrorAction SilentlyContinue
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AllPurposeDownloader-windows
+          path: build/Release/
